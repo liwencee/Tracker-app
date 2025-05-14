@@ -3,26 +3,31 @@ name: CI/CD Pipeline
 on:
   push:
     branches:
-    - main
-    - staging
+      - main
+      - staging
   pull_request:
-
+    branches:
+      - main
+      - staging
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v3
+      - uses: actions/checkout@v3
 
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v2
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
 
-    - name: Build backend Docker image
-      run: docker build -t backend ./backend
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
 
-    - name: Build frontend Docker image
-      run: docker build -t frontend ./frontend
+      - name: Build backend Docker image
+        run: docker build -t backend ./backend
+
+      - name: Build frontend Docker image
+        run: docker build -t frontend ./frontend
 
   deploy:
     needs: build
@@ -30,16 +35,19 @@ jobs:
     if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/staging'
 
     steps:
-    - name: Checkout
-      uses: actions/checkout@v3
+      - name: Checkout
+        uses: actions/checkout@v3
 
-    - name: Configure AWS credentials
-      uses: aws-actions/configure-aws-credentials@v3
-      with:
-        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        aws-region: us-east-1
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v3
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
 
-    - name: Deploy to ECS or EC2
-      run: |
-        # Add ECS or EC2 deployment script here
+      - name: Login to Amazon ECR
+        uses: aws-actions/amazon-ecr-login@v1
+
+      - name: Deploy to ECS or EC2
+        run: |
+          echo "TODO: Add ECS/EC2 deployment logic here"
