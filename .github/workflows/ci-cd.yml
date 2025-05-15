@@ -61,6 +61,8 @@ jobs:
     if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/staging'
 
     steps:
+      - uses: actions/checkout@v3
+
       - name: Set target based on branch
         id: target
         run: |
@@ -74,10 +76,11 @@ jobs:
             echo "${{ secrets.STAGING_SSH_KEY }}" > key.pem
           fi
           chmod 600 key.pem
-
+          
       - name: Deploy on EC2
         run: |
-          ls  
+          ls 
+          pwd 
           scp -o StrictHostKeyChecking=no -i key.pem docker-compose.yml $USER@$HOST:/home/$USER/
           ssh -o StrictHostKeyChecking=no -i key.pem $USER@$HOST << EOF
             aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin ${{ env.ECR_URI }}
