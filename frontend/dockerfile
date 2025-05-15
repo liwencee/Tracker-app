@@ -1,8 +1,24 @@
+# FROM node:18-alpine
+
+# WORKDIR /app
+# COPY package*.json ./
+# RUN npm install
+# COPY . .
+
+# CMD ["npm", "start"]
 FROM node:18-alpine
 
+# Create and use the app directory
 WORKDIR /app
+
+# Copy only dependency files first to leverage Docker cache
 COPY package*.json ./
-RUN npm install
+
+# Optional: force npm log level to verbose for debugging
+RUN npm config set loglevel verbose && npm install
+
+# Copy the rest of the app files
 COPY . .
 
+# Run your app
 CMD ["npm", "start"]
