@@ -15,12 +15,13 @@ jobs:
         run: |
           echo "${{ secrets.STAGING_SSH_KEY }}" > key.pem
           chmod 600 key.pem
+          scp -i key.pem -o StrictHostKeyChecking=no -r ./deploy ec2-user@${{ secrets.EC2_HOST }}:/home/ec2-user/
 
       - name: Deploy to Staging EC2
         run: |
           scp -i key.pem -o StrictHostKeyChecking=no -r ./deploy ${{ secrets.STAGING_USER }}@${{ secrets.STAGING_HOST }}:/home/${{ secrets.STAGING_USER }}/
           ssh -i key.pem -o StrictHostKeyChecking=no ${{ secrets.STAGING_USER }}@${{ secrets.STAGING_HOST }} << EOF
-            aws ecr get-login-password --region <region> | docker login --username AWS --password-stdin <aws_account_id>.dkr.ecr.<region>.amazonaws.com
+            aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin <aws_account_id>.dkr.ecr.<region>.amazonaws.com
             cd deploy && docker-compose pull && docker-compose down && docker-compose up -d
           EOF
 
