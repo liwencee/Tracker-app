@@ -52,6 +52,7 @@ jobs:
      
       - name: Tag and Push frontend image
         run: |
-          docker push ${{ env.ECR_URI }}/tasktracker-frontend:latest
+          docker tag tasktracker-frontend:latest 600748199143.dkr.ecr.us-east-1.amazonaws.com/tasktracker-frontend:latest
+          docker push 600748199143.dkr.ecr.us-east-1.amazonaws.com/tasktracker-frontend:latest
 
  
