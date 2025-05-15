@@ -55,4 +55,35 @@ jobs:
           docker tag tasktracker-frontend:latest 600748199143.dkr.ecr.us-east-1.amazonaws.com/tasktracker-frontend:latest
           docker push 600748199143.dkr.ecr.us-east-1.amazonaws.com/tasktracker-frontend:latest
 
+  deploy-to-ec2:
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/staging'
+
+    steps:
+      - name: Set target based on branch
+        id: target
+        run: |
+          if [[ "${GITHUB_REF##*/}" == "main" ]]; then
+            echo "HOST=${{ secrets.PROD_HOST }}" >> $GITHUB_ENV
+            echo "USER=${{ secrets.PROD_USER }}" >> $GITHUB_ENV
+            echo "${{ secrets.PROD_SSH_KEY }}" > key.pem
+          else
+            echo "HOST=${{ secrets.STAGING_HOST }}" >> $GITHUB_ENV
+            echo "USER=${{ secrets.STAGING_USER }}" >> $GITHUB_ENV
+            echo "${{ secrets.STAGING_SSH_KEY }}" > key.pem
+          fi
+          chmod 600 key.pem
+
+      - name: Deploy on EC2
+        run: |
+          scp -o StrictHostKeyChecking=no -i key.pem docker-compose.yml $USER@$HOST:/home/$USER/
+          ssh -o StrictHostKeyChecking=no -i key.pem $USER@$HOST << EOF
+            aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin ${{ env.ECR_URI }}
+            docker pull ${{ env.ECR_URI }}/tasktracker-backend:latest
+            docker pull ${{ env.ECR_URI }}/tasktracker-frontend:latest
+            cd /home/$USER
+            docker-compose down
+            docker-compose up -d
+          EOF          
+
  
