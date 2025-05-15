@@ -5,45 +5,47 @@ on:
     branches: [main]
 
 jobs:
-  deploy-staging:
+  deploy:
+    name: Deploy to ${{ matrix.env }}
     runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        include:
+          - env: staging
+            HOST: ${{ secrets.STAGING_HOST }}
+            USER: ${{ secrets.STAGING_USER }}
+            SSH_KEY: ${{ secrets.STAGING_SSH_KEY }}
+          - env: production
+            HOST: ${{ secrets.PROD_HOST }}
+            USER: ${{ secrets.PROD_USER }}
+            SSH_KEY: ${{ secrets.PROD_SSH_KEY }}
+
     steps:
-      - name: Checkout repo
+      - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Setup SSH Key
+      - name: Set up SSH key
         run: |
-          mkdir -p ~/.ssh
-          echo "${{ secrets.STAGING_SSH_KEY }}" > ~/.ssh/id_rsa
+          echo "${{ matrix.SSH_KEY }}" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
 
-      - name: Deploy to Staging EC2
+      - name: Add EC2 host to known_hosts
         run: |
-          scp -o StrictHostKeyChecking=no -r ./deploy ${{ secrets.STAGING_USER }}@${{ secrets.STAGING_HOST }}:/home/${{ secrets.STAGING_USER }}/
-          ssh -o StrictHostKeyChecking=no ${{ secrets.STAGING_USER }}@${{ secrets.STAGING_HOST }} << EOF
+          ssh-keyscan -H ${{ matrix.HOST }} >> ~/.ssh/known_hosts
+
+      - name: Copy files to EC2
+        run: |
+          echo "Uploading deploy folder to ${{ matrix.env }} server..."
+          scp -r ./deploy ${{ matrix.USER }}@${{ matrix.HOST }}:/home/${{ matrix.USER }}/
+
+      - name: Run deployment on EC2
+        run: |
+          echo "Starting deployment on ${{ matrix.env }} server..."
+          ssh ${{ matrix.USER }}@${{ matrix.HOST }} << 'EOF'
+            set -e
             aws ecr get-login-password --region ${{ secrets.AWS_REGION }} | docker login --username AWS --password-stdin ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com
-            cd deploy && docker-compose pull && docker-compose down && docker-compose up -d
-          EOF
-
-  deploy-production:
-      needs: deploy-staging
-      if: github.ref == 'refs/heads/main'
-      runs-on: ubuntu-latest
-    
-      steps:
-      - name: Checkout repo
-        uses: actions/checkout@v3
-
-      - name: Setup SSH Key
-        run: |
-          mkdir -p ~/.ssh
-          echo "${{ secrets.PROD_SSH_KEY }}" > ~/.ssh/id_rsa
-          chmod 600 ~/.ssh/id_rsa
-
-      - name: Deploy to Production EC2
-        run: |
-          scp -o StrictHostKeyChecking=no -r ./deploy ${{ secrets.PROD_USER }}@${{ secrets.PROD_HOST }}:/home/${{ secrets.PROD_USER }}/
-          ssh -o StrictHostKeyChecking=no ${{ secrets.PROD_USER }}@${{ secrets.PROD_HOST }} << EOF
-            aws ecr get-login-password --region ${{ secrets.AWS_REGION }} | docker login --username AWS --password-stdin ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com
-            cd deploy && docker-compose pull && docker-compose down && docker-compose up -d
-          EOF
+            cd deploy
+            docker-compose pull
+            docker-compose down
+            docker-compose up -d
