@@ -35,19 +35,31 @@ jobs:
     if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/staging'
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v3
-
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v3
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v2
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
 
-      - name: Login to Amazon ECR
+      - name: Log in to Amazon ECR
+        id: login-ecr
         uses: aws-actions/amazon-ecr-login@v1
 
-      - name: Deploy to ECS or EC2
+      - name: Set ECR URI
+        id: ecr-uri
         run: |
-          echo "TODO: Add ECS/EC2 deployment logic here"
+          ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+          echo "ECR_URI=${ACCOUNT_ID}.dkr.ecr.us-east-1.amazonaws.com" >> $GITHUB_ENV
+
+      - name: Build, tag, and push backend image
+        run: |
+          docker build -t tasktracker-backend ./backend
+          docker tag tasktracker-backend:latest $ECR_URI/tasktracker-backend:latest
+          docker push $ECR_URI/tasktracker-backend:latest
+
+      - name: Build, tag, and push frontend image
+        run: |
+          docker build -t tasktracker-frontend ./frontend
+          docker tag tasktracker-frontend:latest $ECR_URI/tasktracker-frontend:latest
+          docker push $ECR_URI/tasktracker-frontend:latest
