@@ -15,6 +15,26 @@ jobs:
         run: |
           echo "${{ secrets.STAGING_SSH_KEY }}" > key.pem
           chmod 600 key.pem
+      - name: Setup SSH Key
+        run: |
+          echo "${{ secrets.STAGING_SSH_KEY }}" > key.pem
+          chmod 600 key.pem
+          echo "SSH key is set up."
+
+      - name: Deploy to Staging EC2
+        run: |
+          echo "Starting deployment to ${{ secrets.STAGING_HOST }}"
+          scp -i key.pem -o StrictHostKeyChecking=no -r ./deploy ${{ secrets.STAGING_USER }}@${{ secrets.STAGING_HOST }}:/home/${{ secrets.STAGING_USER }}/ || echo "SCP failed"
+          ssh -i key.pem -o StrictHostKeyChecking=no ${{ secrets.STAGING_USER }}@${{ secrets.STAGING_HOST }} << 'EOF' || echo "SSH failed"
+            aws ecr get-login-password --region ${{ secrets.AWS_REGION }} | docker login --username AWS --password-stdin ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com
+            cd deploy && docker-compose pull && docker-compose down && docker-compose up -d
+          EOF
+        shell: bash
+          
+
+
+
+
 
       - name: Deploy to Staging EC2
         run: |
