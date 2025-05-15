@@ -1,5 +1,5 @@
-            
 name: CI/CD Pipeline
+
 on:
   push:
     branches:
@@ -10,6 +10,9 @@ on:
       - main
       - staging
 
+env:
+  AWS_REGION: us-east-1
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -17,19 +20,16 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
-
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
 
       - name: Build backend Docker image
-        run: docker build -t backend ./backend
+        run: docker build -t tasktracker-backend ./backend
 
       - name: Build frontend Docker image
-        run: docker build -t frontend ./frontend
+        run: docker build -t tasktracker-frontend ./frontend
 
-  deploy:
+  push-to-ecr:
     needs: build
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/staging'
@@ -42,27 +42,55 @@ jobs:
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: us-east-1
+          aws-region: ${{ env.AWS_REGION }}
 
       - name: Log in to Amazon ECR
-        id: login-ecr
         uses: aws-actions/amazon-ecr-login@v1
 
       - name: Set ECR URI
+        id: ecr
         run: |
           ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
-          echo "ECR_URI=${ACCOUNT_ID}.dkr.ecr.us-east-1.amazonaws.com" >> $GITHUB_ENV
+          echo "ECR_URI=${ACCOUNT_ID}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com" >> $GITHUB_ENV
 
-      - name: Build, tag, and push backend image
+      - name: Tag and Push backend image
         run: |
-          docker build -t tasktracker-backend ./backend
           docker tag tasktracker-backend:latest ${{ env.ECR_URI }}/tasktracker-backend:latest
           docker push ${{ env.ECR_URI }}/tasktracker-backend:latest
 
-      - name: Build, tag, and push frontend image
+      - name: Tag and Push frontend image
         run: |
-          docker build -t tasktracker-frontend ./frontend
           docker tag tasktracker-frontend:latest ${{ env.ECR_URI }}/tasktracker-frontend:latest
           docker push ${{ env.ECR_URI }}/tasktracker-frontend:latest
 
+  deploy-to-ec2:
+    needs: push-to-ecr
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/staging'
+
+    steps:
+      - name: Set target based on branch
+        id: target
+        run: |
+          if [[ "${GITHUB_REF##*/}" == "main" ]]; then
+            echo "HOST=${{ secrets.PROD_HOST }}" >> $GITHUB_ENV
+            echo "USER=${{ secrets.PROD_USER }}" >> $GITHUB_ENV
+            echo "${{ secrets.PROD_SSH_KEY }}" > key.pem
+          else
+            echo "HOST=${{ secrets.STAGING_HOST }}" >> $GITHUB_ENV
+            echo "USER=${{ secrets.STAGING_USER }}" >> $GITHUB_ENV
+            echo "${{ secrets.STAGING_SSH_KEY }}" > key.pem
+          fi
+          chmod 600 key.pem
+
+      - name: Deploy on EC2
+        run: |
+          scp -o StrictHostKeyChecking=no -i key.pem docker-compose.yml $USER@$HOST:/home/$USER/
+          ssh -o StrictHostKeyChecking=no -i key.pem $USER@$HOST << EOF
+            aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin ${{ env.ECR_URI }}
+            docker pull ${{ env.ECR_URI }}/tasktracker-backend:latest
+            docker pull ${{ env.ECR_URI }}/tasktracker-frontend:latest
+            cd /home/$USER
+            docker-compose down
+            docker-compose up -d
           EOF
