@@ -19,30 +19,31 @@ jobs:
       - name: Deploy to Staging EC2
         run: |
           scp -i key.pem -o StrictHostKeyChecking=no -r ./deploy ${{ secrets.STAGING_USER }}@${{ secrets.STAGING_HOST }}:/home/${{ secrets.STAGING_USER }}/
-          ssh -i key.pem -o StrictHostKeyChecking=no ${{ secrets.STAGING_USER }}@${{ secrets.STAGING_HOST }} << EOF
-            aws ecr get-login-password --region <region> | docker login --username AWS --password-stdin <aws_account_id>.dkr.ecr.<region>.amazonaws.com
+          ssh -i key.pem -o StrictHostKeyChecking=no ${{ secrets.STAGING_USER }}@${{ secrets.STAGING_HOST }} << 'EOF'
+            aws ecr get-login-password --region ${{ secrets.AWS_REGION }} | docker login --username AWS --password-stdin ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com
             cd deploy && docker-compose pull && docker-compose down && docker-compose up -d
           EOF
 
             deploy-production:
-                needs: deploy-staging
-                if: github.ref == 'refs/heads/main'
-                environment:
+              needs: deploy-staging
+              if: github.ref == 'refs/heads/main'
+              runs-on: ubuntu-latest
+              environment:
                 name: production
                 url: http://${{ secrets.PROD_HOST }}
-                steps:
+              steps:
                 - name: Checkout repo
-                    uses: actions/checkout@v3
+                  uses: actions/checkout@v3
 
                 - name: Setup SSH Key
-                    run: |
+                  run: |
                     echo "${{ secrets.PROD_SSH_KEY }}" > key.pem
                     chmod 600 key.pem
 
                 - name: Deploy to Production EC2
-                    run: |
+                  run: |
                     scp -i key.pem -o StrictHostKeyChecking=no -r ./deploy ${{ secrets.PROD_USER }}@${{ secrets.PROD_HOST }}:/home/${{ secrets.PROD_USER }}/
-                    ssh -i key.pem -o StrictHostKeyChecking=no ${{ secrets.PROD_USER }}@${{ secrets.PROD_HOST }} << EOF
-                        aws ecr get-login-password --region <region> | docker login --username AWS --password-stdin <aws_account_id>.dkr.ecr.<region>.amazonaws.com
-                        cd deploy && docker-compose pull && docker-compose down && docker-compose up -d
+                    ssh -i key.pem -o StrictHostKeyChecking=no ${{ secrets.PROD_USER }}@${{ secrets.PROD_HOST }} << 'EOF'
+                      aws ecr get-login-password --region ${{ secrets.AWS_REGION }} | docker login --username AWS --password-stdin ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com
+                      cd deploy && docker-compose pull && docker-compose down && docker-compose up -d
                     EOF
