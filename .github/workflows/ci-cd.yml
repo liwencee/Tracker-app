@@ -47,17 +47,18 @@ jobs:
           docker build -t tasktracker-frontend ./frontend
           docker tag tasktracker-frontend:latest ${{ env.ECR_URI }}/tasktracker-frontend:${{ github.ref_name }}
           docker push ${{ env.ECR_URI }}/tasktracker-frontend:${{ github.ref_name }}
-       
-          - name: Deploy to EC2 via SSH
-          run: |
-            mkdir -p ~/.ssh
-            echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/id_rsa
-            chmod 600 ~/.ssh/id_rsa
 
-            ssh -o StrictHostKeyChecking=no ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << EOF
-              docker pull 600748199143.dkr.ecr.us-east-1.amazonaws.com/tasktracker-frontend
-              cd ~/deploy
-              docker-compose down
-              docker-compose up -d
-            EOF
+      - name: Deploy to EC2 via SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
 
+          ssh -o StrictHostKeyChecking=no ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << EOF
+            aws ecr get-login-password --region ${{ secrets.AWS_REGION }} | docker login --username AWS --password-stdin ${{ env.ECR_URI }}
+            docker pull ${{ env.ECR_URI }}/tasktracker-frontend:${{ github.ref_name }}
+            docker pull ${{ env.ECR_URI }}/tasktracker-backend:${{ github.ref_name }}
+            cd ~/deploy
+            docker-compose down
+            docker-compose up -d
+          EOF
