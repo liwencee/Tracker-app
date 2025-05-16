@@ -2,17 +2,19 @@ version: '3.8'
 
 services:
   backend:
-    build: ./backend
+    build:
+      context: ./backend
+    container_name: tasktracker-backend
     ports:
-      - "5000:5000"
+      - "5000:5000"  # Update this if your backend runs on a different port
+    volumes:
+      - ./backend:/app
     environment:
-      - ENV=development
+      - PYTHONUNBUFFERED=1
 
   frontend:
-    build: ./frontend
+    build:
+      context: ./frontend
+    container_name: tasktracker-frontend
     ports:
-      - "3000:3000"
-    environment:
-      - REACT_APP_API_URL=http://localhost:5000
-    depends_on:
-      - backend
+      - "80:80"  # Accessible via EC2 public IP on port 80
