@@ -48,24 +48,24 @@ jobs:
           docker tag tasktracker-frontend:latest ${{ env.ECR_URI }}/tasktracker-frontend:${{ github.ref_name }}
           docker push ${{ env.ECR_URI }}/tasktracker-frontend:${{ github.ref_name }}
 
-          - name: Deploy to EC2
-            run: |
-              mkdir -p ~/.ssh
-              echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
-              chmod 600 ~/.ssh/id_rsa
-              ssh-keyscan -H "${{ secrets.EC2_HOST }}" >> ~/.ssh/known_hosts
-          
-              ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no \
-                ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << 'EOF'
-                  set -e
-                  aws ecr get-login-password --region ${{ secrets.AWS_REGION }} \
-                    | docker login --username AWS --password-stdin ${{ env.ECR_URI }}
-                  docker pull ${{ env.ECR_URI }}/tasktracker-frontend:main
-                  docker pull ${{ env.ECR_URI }}/tasktracker-backend:main
-                  cd ~/deploy
-                  docker-compose down
-                  docker-compose up -d
-                EOF
+      - name: Deploy to EC2
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H "${{ secrets.EC2_HOST }}" >> ~/.ssh/known_hosts
+
+          ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no \
+            ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << 'EOF'
+              set -e
+              aws ecr get-login-password --region ${{ secrets.AWS_REGION }} \
+                | docker login --username AWS --password-stdin ${{ env.ECR_URI }}
+              docker pull ${{ env.ECR_URI }}/tasktracker-frontend:main
+              docker pull ${{ env.ECR_URI }}/tasktracker-backend:main
+              cd ~/deploy
+              docker-compose down
+              docker-compose up -d
+            EOF
 
 
-     
+      
