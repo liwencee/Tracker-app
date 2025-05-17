@@ -51,27 +51,31 @@ jobs:
 
       - name: Deploy to EC2 (Staging or Production)
         run: |
-          if [[ "${GITHUB_REF}" == "refs/heads/main" ]]; then
-            SSH_KEY="${{ secrets.PROD_SSH_KEY }}"
-            HOST="${{ secrets.PROD_HOST }}"
-            USER="${{ secrets.PROD_USER }}"
-          else
-            SSH_KEY="${{ secrets.STAGING_SSH_KEY }}"
-            HOST="${{ secrets.STAGING_HOST }}"
-            USER="${{ secrets.STAGING_USER }}"
-          fi
+          aws ecr get-login-password --region ${{ secrets.AWS_REGION }} \
+            | docker login --username AWS --password-stdin ${{ env.ECR_URI }}
 
-          mkdir -p ~/.ssh
-          echo "$SSH_KEY" > ~/.ssh/id_rsa
-          chmod 600 ~/.ssh/id_rsa
-          ssh-keyscan -H "$HOST" >> ~/.ssh/known_hosts
+      - name: Build, tag, and push backend image
+        run: |
+          docker build -t tasktracker-backend ./backend
+          docker tag tasktracker-backend:latest ${{ env.ECR_URI }}/tasktracker-backend:${{ github.ref_name }}
+          docker push ${{ env.ECR_URI }}/tasktracker-backend:${{ github.ref_name }}
 
-          ssh -i ~/.ssh/id_rsa "$USER@$HOST" << EOF
-            set -e
-            aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin $ECR_URI
-            docker pull $ECR_URI/tasktracker-frontend:main
-            docker pull $ECR_URI/tasktracker-backend:main
-            cd ~/deploy
-            docker-compose down
-            docker-compose up -d
-          EOF
+      - name: Build, tag, and push frontend image
+        run: |
+          docker build -t tasktracker-frontend ./frontend
+          docker tag tasktracker-frontend:latest ${{ env.ECR_URI }}/tasktracker-frontend:${{ github.ref_name }}
+          docker push ${{ env.ECR_URI }}/tasktracker-frontend:${{ github.ref_name }}
+       
+          - name: Deploy to EC2 via SSH
+          run: |
+            mkdir -p ~/.ssh
+            echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/id_rsa
+            chmod 600 ~/.ssh/id_rsa
+
+            ssh -o StrictHostKeyChecking=no ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << EOF
+              docker pull 600748199143.dkr.ecr.us-east-1.amazonaws.com/tasktracker-frontend
+              cd ~/deploy
+              docker-compose down
+              docker-compose up -d
+            EOF
+
