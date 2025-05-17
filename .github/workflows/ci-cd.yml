@@ -4,11 +4,9 @@ on:
   push:
     branches:
       - main
-      - staging
   pull_request:
     branches:
       - main
-      - staging
 
 jobs:
   build-and-deploy:
@@ -50,17 +48,19 @@ jobs:
           docker build -t tasktracker-frontend ./frontend
           docker tag tasktracker-frontend:latest ${{ env.ECR_URI }}/tasktracker-frontend:${{ github.ref_name }}
           docker push ${{ env.ECR_URI }}/tasktracker-frontend:${{ github.ref_name }}
-
+      
       - name: Deploy to EC2
         env:
-          AWS_REGION: ${{ env.AWS_REGION }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}
           ECR_URI: ${{ env.ECR_URI }}
         run: |
+          set -e
+
+          # 1. Write SSH key from GitHub secret (must be exactly your PEM content)
           mkdir -p ~/.ssh
-          # Write the SSH private key from your secret
           echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
-    
+
           # 2. Add your EC2 host to known_hosts to avoid prompts
           ssh-keyscan -H "${{ secrets.EC2_HOST }}" >> ~/.ssh/known_hosts
 
