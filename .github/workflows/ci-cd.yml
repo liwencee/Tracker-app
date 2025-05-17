@@ -60,18 +60,7 @@ jobs:
           # Write the SSH private key from your secret
           echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
-      - name: Deploy to EC2
-        env:
-          AWS_REGION: ${{ secrets.AWS_REGION }}
-          ECR_URI: ${{ env.ECR_URI }}
-        run: |
-          set -e
-
-          # 1. Write SSH key from GitHub secret (must be exactly your PEM content)
-          mkdir -p ~/.ssh
-          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
-          chmod 600 ~/.ssh/id_rsa
-
+    
           # 2. Add your EC2 host to known_hosts to avoid prompts
           ssh-keyscan -H "${{ secrets.EC2_HOST }}" >> ~/.ssh/known_hosts
 
