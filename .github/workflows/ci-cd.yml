@@ -51,13 +51,22 @@ jobs:
           docker tag tasktracker-frontend:latest ${{ env.ECR_URI }}/tasktracker-frontend:${{ github.ref_name }}
           docker push ${{ env.ECR_URI }}/tasktracker-frontend:${{ github.ref_name }}
 
-     
+      - name: Deploy to EC2
+        env:
+          AWS_REGION: ${{ env.AWS_REGION }}
+          ECR_URI: ${{ env.ECR_URI }}
+        run: |
+          mkdir -p ~/.ssh
+          # Write the SSH private key from your secret
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
       - name: Deploy to EC2
         env:
           AWS_REGION: ${{ secrets.AWS_REGION }}
           ECR_URI: ${{ env.ECR_URI }}
         run: |
-         
+          set -e
+
           # 1. Write SSH key from GitHub secret (must be exactly your PEM content)
           mkdir -p ~/.ssh
           echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
@@ -67,8 +76,8 @@ jobs:
           ssh-keyscan -H "${{ secrets.EC2_HOST }}" >> ~/.ssh/known_hosts
 
           # 3. SSH in and run your ECR + Docker commands
-          ssh -v -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no ssh -i your-existing-key.pem ec2-user@172-31-25-247
-            ssh -i your-existing-key.pem ec2-user@172.31.19.226 << 'EOF'
+          ssh -v -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no \
+            ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << 'EOF'
           aws ecr get-login-password --region $AWS_REGION \
             | docker login --username AWS --password-stdin $ECR_URI
 
