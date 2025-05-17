@@ -57,6 +57,7 @@ jobs:
           AWS_REGION: ${{ secrets.AWS_REGION }}
           ECR_URI: ${{ env.ECR_URI }}
         run: |
+          set -e
 
           # 1. Write SSH key from GitHub secret (must be exactly your PEM content)
           mkdir -p ~/.ssh
