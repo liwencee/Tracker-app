@@ -60,24 +60,40 @@ jobs:
           # Write the SSH private key from your secret
           echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
+      - name: Deploy to EC2
+        env:
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+          ECR_URI: ${{ env.ECR_URI }}
+        run: |
+          set -e
 
-          # Add your EC2 host key to known_hosts
+          # 1. Write SSH key from GitHub secret (must be exactly your PEM content)
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+
+          # 2. Add your EC2 host to known_hosts to avoid prompts
           ssh-keyscan -H "${{ secrets.EC2_HOST }}" >> ~/.ssh/known_hosts
 
-          # SSH into your EC2 and run the deployment commands
+          # 3. SSH in and run your ECR + Docker commands
           ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no \
             ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << 'EOF'
+          aws ecr get-login-password --region $AWS_REGION \
+            | docker login --username AWS --password-stdin $ECR_URI
+
+              docker pull $ECR_URI/tasktracker-frontend:main
+              docker pull $ECR_URI/tasktracker-backend:main
+
+              cd ~/deploy
+              docker-compose down
+              docker-compose up -d
+              EOF
+
+
             
-          set -e
-          # Log in to ECR
-          aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $ECR_URI
 
-          # Pull the latest images
-          docker pull $ECR_URI/tasktracker-frontend:main
-          docker pull $ECR_URI/tasktracker-backend:main
 
-          # Deploy via Docker Compose
-          cd ~/deploy
-          docker-compose down
-          docker-compose up -d
-          EOF
+          
+          
+
+        
