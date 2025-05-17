@@ -19,9 +19,6 @@ RUN chmod +x ./node_modules/.bin/* || true
 # Run the build
 RUN npm run build
 
-# Install serve to serve the static files
-RUN npm install -g serve
+# Default command
 
-EXPOSE 3000
-
-CMD ["serve", "-s", "dist", "-l", "3000"]
+CMD ["npm", "start"]
