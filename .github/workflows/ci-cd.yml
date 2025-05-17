@@ -51,21 +51,35 @@ jobs:
       - name: Deploy to EC2
         run: |
           mkdir -p ~/.ssh
+          # Write the SSH private key from your secret
           echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
+
+          # Add your EC2 host key to known_hosts
           ssh-keyscan -H "${{ secrets.EC2_HOST }}" >> ~/.ssh/known_hosts
 
+          # SSH into your EC2 and run the deployment commands
           ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no \
             ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << 'EOF'
               set -e
-              aws ecr get-login-password --region ${{ secrets.AWS_REGION }} \
-                | docker login --username AWS --password-stdin ${{ env.ECR_URI }}
-              docker pull ${{ env.ECR_URI }}/tasktracker-frontend:main
-              docker pull ${{ env.ECR_URI }}/tasktracker-backend:main
+              # Log in to ECR
+              aws ecr get-login-password --region $AWS_REGION \
+                | docker login --username AWS --password-stdin $ECR_URI
+
+              # Pull the latest images
+              docker pull $ECR_URI/tasktracker-frontend:main
+              docker pull $ECR_URI/tasktracker-backend:main
+
+              # Deploy via Docker Compose
               cd ~/deploy
               docker-compose down
               docker-compose up -d
             EOF
+        env:
+          AWS_REGION: ${{ env.AWS_REGION }}
+          ECR_URI: ${{ env.ECR_URI }}
+
+
 
 
       
