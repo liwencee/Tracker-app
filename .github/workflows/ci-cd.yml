@@ -51,8 +51,8 @@ jobs:
 
       - name: Deploy to EC2 (Staging or Production)
         run: |
-          aws ecr get-login-password --region ${{ secrets.AWS_REGION }} \
-            | docker login --username AWS --password-stdin ${{ env.ECR_URI }}
+          aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 
+          600748199143.dkr.ecr.us-east-1.amazonaws.com
 
       - name: Build, tag, and push backend image
         run: |
@@ -62,9 +62,9 @@ jobs:
 
       - name: Build, tag, and push frontend image
         run: |
-          docker build -t tasktracker-frontend ./frontend
-          docker tag tasktracker-frontend:latest ${{ env.ECR_URI }}/tasktracker-frontend:${{ github.ref_name }}
-          docker push ${{ env.ECR_URI }}/tasktracker-frontend:${{ github.ref_name }}
+          docker build -t tasktracker-frontend .
+          docker tag tasktracker-frontend:latest 600748199143.dkr.ecr.us-east-1.amazonaws.com/tasktracker-frontend:latest ${{ env.ECR_URI }}/tasktracker-frontend:${{ github.ref_name }}
+          docker push 600748199143.dkr.ecr.us-east-1.amazonaws.com/tasktracker-frontend:latest ${{ env.ECR_URI }}/tasktracker-frontend:${{ github.ref_name }}
 
       - name: Deploy to EC2 via SSH
         run: |
