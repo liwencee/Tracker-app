@@ -14,6 +14,9 @@ jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
 
+    env:
+      AWS_REGION: ${{ secrets.AWS_REGION }}
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
@@ -49,6 +52,9 @@ jobs:
           docker push ${{ env.ECR_URI }}/tasktracker-frontend:${{ github.ref_name }}
 
       - name: Deploy to EC2
+        env:
+          AWS_REGION: ${{ env.AWS_REGION }}
+          ECR_URI: ${{ env.ECR_URI }}
         run: |
           mkdir -p ~/.ssh
           # Write the SSH private key from your secret
@@ -61,25 +67,17 @@ jobs:
           # SSH into your EC2 and run the deployment commands
           ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no \
             ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << 'EOF'
-              set -e
-              # Log in to ECR
-              aws ecr get-login-password --region $AWS_REGION \
-                | docker login --username AWS --password-stdin $ECR_URI
+            
+          set -e
+          # Log in to ECR
+          aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $ECR_URI
 
-              # Pull the latest images
-              docker pull $ECR_URI/tasktracker-frontend:main
-              docker pull $ECR_URI/tasktracker-backend:main
+          # Pull the latest images
+          docker pull $ECR_URI/tasktracker-frontend:main
+          docker pull $ECR_URI/tasktracker-backend:main
 
-              # Deploy via Docker Compose
-              cd ~/deploy
-              docker-compose down
-              docker-compose up -d
-            EOF
-        env:
-          AWS_REGION: ${{ env.AWS_REGION }}
-          ECR_URI: ${{ env.ECR_URI }}
-
-
-
-
-      
+          # Deploy via Docker Compose
+          cd ~/deploy
+          docker-compose down
+          docker-compose up -d
+          EOF
