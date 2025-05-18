@@ -1,53 +1,90 @@
-name: CI/CD Deploy
+name: CI/CD Pipeline
 
 on:
-  workflow_dispatch:
-    inputs:
-      environment:
-        description: 'Environment'
-        required: true
-        default: 'staging'
-        type: choice
-        options:
-          - staging
-          - prod
-      app:
-        description: 'App to deploy'
-        required: true
-        default: 'frontend'
-        type: choice
-        options:
-          - frontend
-          - backend
+  push:
+    branches:
+      - main
+      - staging
+  pull_request:
+    branches:
+      - main
+      - staging
 
 jobs:
-  deploy:
-    name: Deploy via SSH
+  build-and-deploy:
     runs-on: ubuntu-latest
 
+    env:
+      AWS_REGION: ${{ secrets.AWS_REGION }}
+
     steps:
-      - name: Checkout Code
+      - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Set up SSH key
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Get AWS Account ID and set ECR URI
+        id: get-ecr-uri
         run: |
+          ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+          echo "ECR_URI=${ACCOUNT_ID}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com" >> $GITHUB_ENV
+
+      - name: Login to Amazon ECR
+        run: |
+          aws ecr get-login-password --region ${{ secrets.AWS_REGION }} \
+            | docker login --username AWS --password-stdin ${{ env.ECR_URI }}
+
+      - name: Build, tag, and push backend image
+        run: |
+          docker build -t tasktracker-backend ./backend
+          docker tag tasktracker-backend:latest ${{ env.ECR_URI }}/tasktracker-backend:${{ github.ref_name }}
+          docker push ${{ env.ECR_URI }}/tasktracker-backend:${{ github.ref_name }}
+
+      - name: Build, tag, and push frontend image
+        run: |
+          docker build -t tasktracker-frontend ./frontend
+          docker tag tasktracker-frontend:latest ${{ env.ECR_URI }}/tasktracker-frontend:${{ github.ref_name }}
+          docker push ${{ env.ECR_URI }}/tasktracker-frontend:${{ github.ref_name }}
+
+      - name: Deploy to EC2
+        env:
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+          ECR_URI: ${{ env.ECR_URI }}
+        run: |
+          set -env
+
+          # 1. Write SSH key from GitHub secret (must be exactly your PEM content)
           mkdir -p ~/.ssh
-          echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/id_rsa
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
 
-      - name: Set Host Variable
-        id: sethost
-        run: |
-          if [ "${{ github.event.inputs.environment }}" == "prod" ]; then
-            echo "HOST=${{ secrets.EC2_HOST_PROD }}" >> $GITHUB_ENV
-          else
-            echo "HOST=${{ secrets.EC2_HOST_STAGING }}" >> $GITHUB_ENV
-          fi
+          # 2. Add your EC2 host to known_hosts to avoid prompts
+          ssh-keyscan -H "${{ secrets.EC2_HOST }}" >> ~/.ssh/known_hosts
 
-      - name: Deploy App
-        env:
-          HOST: ${{ env.HOST }}
-          KEY: id_rsa
-        run: |
-          chmod +x ./deploy.sh
-          ./deploy.sh "${{ github.event.inputs.environment }}" "${{ github.event.inputs.app }}"
+          # 3. SSH in and run your ECR + Docker commands
+          ssh -v -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no \
+            ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << 'EOF'
+          aws ecr get-login-password --region $AWS_REGION \
+            | docker login --username AWS --password-stdin $ECR_URI
+
+              docker pull $ECR_URI/tasktracker-frontend:main
+              docker pull $ECR_URI/tasktracker-backend:main
+
+              ./deploy.sh
+              docker-compose down
+              docker-compose up -d
+              EOF
+
+
+            
+
+
+          
+          
+
+        
