@@ -9,10 +9,9 @@ on:
 
 env:
   AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
-  AWS_REGION:     ${{ secrets.AWS_REGION }}
-  # ECR repo names (defaults to service folder name)
+  AWS_REGION: ${{ secrets.AWS_REGION }}
   ECR_REPO_FRONTEND: frontend
-  ECR_REPO_BACKEND:  backend
+  ECR_REPO_BACKEND: backend
 
 jobs:
   build-and-push:
@@ -27,21 +26,19 @@ jobs:
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v2
         with:
-          aws-access-key-id:     ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region:            ${{ env.AWS_REGION }}
+          aws-region: ${{ env.AWS_REGION }}
 
-      - name: Login to ECR
+      - name: Login to Amazon ECR
         uses: aws-actions/amazon-ecr-login@v1
 
-      - name: Build & Push ${{ matrix.service }} image
-        uses: docker/build-push-action@v3
-        with:
-          context: ./${{ matrix.service }}
-          push: true
-          tags: ${{ env.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${
-            { matrix.service == 'frontend' && env.ECR_REPO_FRONTEND || env.ECR_REPO_BACKEND }
-          }:${{ github.sha }}
+      - name: Build & Push ${{ matrix.service }} Image
+        run: |
+          IMAGE_REPO="${{ env.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com"
+          SERVICE_REPO="${{ matrix.service == 'frontend' && env.ECR_REPO_FRONTEND || env.ECR_REPO_BACKEND }}"
+          docker build -t "$IMAGE_REPO/$SERVICE_REPO:${{ github.sha }}" ./${{ matrix.service }}
+          docker push "$IMAGE_REPO/$SERVICE_REPO:${{ github.sha }}"
 
   deploy-staging:
     name: Deploy to Staging
@@ -49,7 +46,7 @@ jobs:
     if: github.ref == 'refs/heads/staging'
     runs-on: ubuntu-latest
     steps:
-      - name: Setup SSH agent
+      - name: Setup SSH Agent
         uses: webfactory/ssh-agent@v0.5.4
         with:
           ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY_STAGING }}
@@ -68,7 +65,7 @@ jobs:
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
-      - name: Setup SSH agent
+      - name: Setup SSH Agent
         uses: webfactory/ssh-agent@v0.5.4
         with:
           ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY_PROD }}
