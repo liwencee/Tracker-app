@@ -1,4 +1,3 @@
-# .github/workflows/ci-cd.yml
 name: CI/CD Pipeline
 
 on:
@@ -30,13 +29,14 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
-      - name: Login to Amazon ECR
-        uses: aws-actions/amazon-ecr-login@v1
-
       - name: Build & Push ${{ matrix.service }} Image
         run: |
           IMAGE_REPO="${{ env.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com"
-          SERVICE_REPO="${{ matrix.service == 'frontend' && env.ECR_REPO_FRONTEND || env.ECR_REPO_BACKEND }}"
+          if [ "${{ matrix.service }}" = "frontend" ]; then
+            SERVICE_REPO="${{ env.ECR_REPO_FRONTEND }}"
+          else
+            SERVICE_REPO="${{ env.ECR_REPO_BACKEND }}"
+          fi
           docker build -t "$IMAGE_REPO/$SERVICE_REPO:${{ github.sha }}" ./${{ matrix.service }}
           docker push "$IMAGE_REPO/$SERVICE_REPO:${{ github.sha }}"
 
