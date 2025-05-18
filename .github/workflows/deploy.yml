@@ -75,7 +75,7 @@ jobs:
               docker pull $ECR_URI/tasktracker-frontend:main
               docker pull $ECR_URI/tasktracker-backend:main
 
-              ./deploy.sh
+              chmod +x ./deploy.sh
               docker-compose down
               docker-compose up -d
               EOF
