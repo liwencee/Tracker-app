@@ -2,67 +2,13 @@ version: '3.8'
 
 services:
   frontend:
-    image: your-frontend-image:latest
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-    container_name: frontend
+    build: ./frontend
     ports:
-      - "80:80"  # Or 3000:3000 depending on your app
-    restart: always
+      - "8080:80"
+    depends_on:
+      - backend
 
   backend:
-    image: your-backend-image:latest
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-    container_name: backend
+    build: ./backend
     ports:
-      - "5000:5000"  # Adjust to your backend port
-    environment:
-      - NODE_ENV=production
-    restart: always
-
-  prometheus:
-    image: prom/prometheus:latest
-    container_name: prometheus
-    volumes:
-      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
-      - prometheus_data:/prometheus
-    ports:
-      - "9090:9090"
-    restart: always
-
-  grafana:
-    image: grafana/grafana:latest
-    container_name: grafana
-    volumes:
-      - grafana_data:/var/lib/grafana
-    ports:
-      - "3000:3000"
-    environment:
-      - GF_SECURITY_ADMIN_PASSWORD=admin
-    restart: always
-
-  node-exporter:
-    image: prom/node-exporter:latest
-    container_name: node-exporter
-    ports:
-      - "9100:9100"
-    restart: always
-
-  cadvisor:
-    image: gcr.io/cadvisor/cadvisor:latest
-    container_name: cadvisor
-    ports:
-      - "8080:8080"
-    volumes:
-      - /:/rootfs:ro
-      - /var/run:/var/run:ro
-      - /sys:/sys:ro
-      - /var/lib/docker/:/var/lib/docker:ro
-    restart: always
-
-volumes:
-  prometheus_data:
-  grafana_data:
+      - "5000:5000"
