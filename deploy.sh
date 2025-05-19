@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -e
+set -env
 
 # Set environment
 BRANCH=$(basename $(git symbolic-ref HEAD 2>/dev/null || echo "refs/heads/main"))
