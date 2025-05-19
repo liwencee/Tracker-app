@@ -63,6 +63,13 @@ jobs:
           echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
 
+      - name: Upload deployment files
+        run: |
+          scp -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no \
+          docker-compose.yml deploy.sh \
+          $EC2_USER@$EC2_HOST:/home/ubuntu/
+
+
           # 2. Add your EC2 host to known_hosts to avoid prompts
           ssh-keyscan -H "${{ secrets.EC2_HOST }}" >> ~/.ssh/known_hosts
 
