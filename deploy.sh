@@ -1,38 +1,30 @@
-#!/bin/bash
+      - name: Deploy to EC2
+        env:
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+          ECR_URI: ${{ env.ECR_URI }}
+        run: |
+          # Set target EC2 based on branch
+          if [[ "${GITHUB_REF##*/}" == "main" ]]; then
+            TARGET_USER=${{ secrets.EC2_USER_PROD }}
+            TARGET_HOST=${{ secrets.EC2_HOST_PROD }}
+          else
+            TARGET_USER=${{ secrets.EC2_USER_STAGING }}
+            TARGET_HOST=${{ secrets.EC2_HOST_STAGING }}
+          fi
 
-set -env
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H "$TARGET_HOST" >> ~/.ssh/known_hosts
 
-TAG=$1
+          # Upload deployment files
+          scp -i ~/.ssh/id_rsa docker-compose.prod.yml deploy.sh $TARGET_USER@$TARGET_HOST:/home/$TARGET_USER/
+          scp -r -i ~/.ssh/id_rsa frontend backend $TARGET_USER@$TARGET_HOST:/home/$TARGET_USER/
 
-if [ -z "$TAG" ]; then
-  echo "Usage: ./deploy.sh <tag>"
-  exit 1
-fi
-
-echo "Starting deployment for tag: $TAG"
-
-# Set ECR repo prefix (replace with your actual repo URL or pass it as env var)
-ECR_URI="600748199143.dkr.ecr.us-east-1.amazonaws.com/tasktracker-backend"
-ECR_URI="600748199143.dkr.ecr.us-east-1.amazonaws.com/tasktracker-frontend"
-
-
-echo "Logging into ECR..."
-aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin $ECR_URI
-
-echo "Pulling backend image with tag $TAG..."
-docker pull $ECR_URI/tasktracker-backend:$TAG
-
-echo "Pulling frontend image with tag $TAG..."
-docker pull $ECR_URI/tasktracker-frontend:$TAG
-
-echo "Stopping and removing old containers..."
-docker-compose down
-
-echo "Starting containers with docker-compose..."
-docker-compose up -d
-
-echo "Deployment completed for tag: $TAG"
-
-EOF
-
-chmod +x deploy.sh
+          # Run deploy.sh remotely
+          ssh -i ~/.ssh/id_rsa $TARGET_USER@$TARGET_HOST << EOF
+            chmod +x /home/$TARGET_USER/deploy.sh
+            aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $ECR_URI
+            ./deploy.sh
+          
+          EOF
