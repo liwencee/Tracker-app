@@ -71,8 +71,8 @@ jobs:
             ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << 'EOF'
           aws ecr get-login-password --region $AWS_REGION \
             | docker login --username AWS --password-stdin $ECR_URI
-             docker-compose.prod.yml deploy.sh \
-             $EC2_USER@$EC2_HOST:/home/ubuntu/
+              docker-compose.prod.yml deploy.sh \
+              $EC2_USER@$EC2_HOST:/home/ubuntu/
 
 
               docker pull $ECR_URI/tasktracker-frontend:main
