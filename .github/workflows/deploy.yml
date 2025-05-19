@@ -81,7 +81,7 @@ jobs:
 
             echo "Uploading to $TARGET_USER@$TARGET_HOST"
 
-            scp -i ~/.ssh/id_rsa docker-compose.prod.yml ./deploy.sh $TARGET_USER@$TARGET_HOST:/home/$TARGET_USER/
+            scp -i ~/.ssh/id_rsa docker-compose.prod.yml ./deploy.sh $TARGET_USER@$TARGET_HOST:/home/ubuntu/$TARGET_USER/
 
 
       - name: Deploy to Staging
