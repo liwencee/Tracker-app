@@ -1,14 +1,18 @@
-version: '3.8'
+version: "3.8"
 
 services:
-  frontend:
-    build: ./frontend
-    ports:
-      - "8080:80"
-    depends_on:
-      - backend
-
   backend:
-    build: ./backend
+    image: ${ECR_URI}/tasktracker-backend:${BRANCH}
     ports:
-      - "5000:5000"
+      - "4000:4000"
+    environment:
+      - NODE_ENV=production
+    restart: always
+
+  frontend:
+    image: ${ECR_URI}/tasktracker-frontend:${BRANCH}
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+    restart: always
