@@ -73,11 +73,11 @@ jobs:
           chmod 600 ~/.ssh/id_rsa
           ssh-keyscan -H "$TARGET_HOST" >> ~/.ssh/known_hosts
 
-          scp -i ~/.ssh/id_rsa docker-compose.prod.yml deploy.sh $TARGET_USER@$TARGET_HOST:/home/$TARGET_USER/
-          scp -r -i ~/.ssh/id_rsa frontend backend $TARGET_USER@$TARGET_HOST:/home/$TARGET_USER/
+          scp -i ~/.ssh/id_rsa docker-compose.prod.yml deploy.sh $TARGET_USER@$TARGET_HOST:/home/ubuntu/$TARGET_USER/
+          scp -r -i ~/.ssh/id_rsa frontend backend $TARGET_USER@$TARGET_HOST:/home/ubuntu/$TARGET_USER/
 
           ssh -i ~/.ssh/id_rsa $TARGET_USER@$TARGET_HOST << EOF
-            chmod +x /home/$TARGET_USER/deploy.sh
+            chmod +x /home/ubuntu/$TARGET_USER/deploy.sh
             aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $ECR_URI
             ./deploy.sh
           EOF
