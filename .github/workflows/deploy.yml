@@ -80,23 +80,3 @@ jobs:
             aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $ECR_URI
             ./deploy.sh
           EOF
-
-
-
-              docker pull $ECR_URI/tasktracker-frontend:main
-              docker pull $ECR_URI/tasktracker-backend:main
-
-
-              ./deploy.sh
-              docker-compose down
-              docker-compose up -d
-              EOF
-
-
-            
-
-
-          
-          
-
-        
