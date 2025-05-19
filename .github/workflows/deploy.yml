@@ -69,12 +69,20 @@ jobs:
           chmod 600 ~/.ssh/id_rsa
           ssh-keyscan -H "ec2-34-235-114-193.compute-1.amazonaws.com" >> ~/.ssh/known_hosts
           
-
-      - name: Upload deployment files to Staging
+      - name: Upload deployment files
         run: |
-          scp -i ~/.ssh/id_rsa docker-compose.prod.yml deploy.sh ${{ secrets.EC2_USER_STAGING }}@${{ secrets.EC2_HOST_STAGING }}:/home/${{ secrets.EC2_USER_STAGING }}/
-          scp -r -i ~/.ssh/id_rsa frontend backend ${{ secrets.EC2_USER_STAGING }}@${{ secrets.EC2_HOST_STAGING }}:/home/${{ secrets.EC2_USER_STAGING }}/
-          ssh -i ~/.ssh/id_rsa ${{ secrets.EC2_USER_STAGING }}@${{ secrets.EC2_HOST_STAGING }} "chmod +x /home/${{ secrets.EC2_USER_STAGING }}/deploy.sh"
+            if [[ "${GITHUB_REF##*/}" == "main" ]]; then
+              TARGET_HOST=${{ secrets.EC2_HOST_PROD }}
+              TARGET_USER=${{ secrets.EC2_USER_PROD }}
+            else
+              TARGET_HOST=${{ secrets.EC2_HOST_STAGING }}
+              TARGET_USER=${{ secrets.EC2_USER_STAGING }}
+            fi
+
+            echo "Uploading to $TARGET_USER@$TARGET_HOST"
+
+            scp -i ~/.ssh/id_rsa docker-compose.prod.yml ./deploy.sh $TARGET_USER@$TARGET_HOST:/home/$TARGET_USER/
+
 
       - name: Deploy to Staging
         env:
