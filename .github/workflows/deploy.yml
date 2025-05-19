@@ -61,14 +61,7 @@ jobs:
           # 1. Write SSH key from GitHub secret (must be exactly your PEM content)
           mkdir -p ~/.ssh
           echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
-          chmod 600 ~/.ssh/id_rsa
-
-      - name: Upload deployment files
-        run: |
-          scp -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no \
-          docker-compose.prod.yml deploy.sh \
-          $EC2_USER@$EC2_HOST:/home/ubuntu/
-
+          chmod 600 ~/.ssh/id_rsa   
 
           # 2. Add your EC2 host to known_hosts to avoid prompts
           ssh-keyscan -H "${{ secrets.EC2_HOST }}" >> ~/.ssh/known_hosts
@@ -78,6 +71,9 @@ jobs:
             ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << 'EOF'
           aws ecr get-login-password --region $AWS_REGION \
             | docker login --username AWS --password-stdin $ECR_URI
+             docker-compose.prod.yml deploy.sh \
+             $EC2_USER@$EC2_HOST:/home/ubuntu/
+
 
               docker pull $ECR_URI/tasktracker-frontend:main
               docker pull $ECR_URI/tasktracker-backend:main
