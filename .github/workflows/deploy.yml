@@ -66,7 +66,7 @@ jobs:
       - name: Upload deployment files
         run: |
           scp -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no \
-          docker-compose.yml deploy.sh \
+          docker-compose.prod.yml deploy.sh \
           $EC2_USER@$EC2_HOST:/home/ubuntu/
 
 
