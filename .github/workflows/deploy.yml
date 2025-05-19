@@ -37,19 +37,19 @@ jobs:
       - name: Login to Amazon ECR
         run: |
           aws ecr get-login-password --region ${{ secrets.AWS_REGION }} \
-            | docker login --username AWS --password-stdin ec2-54-175-198-233.compute-1.amazonaws.com
+            | docker login --username AWS --password-stdin ${{ env.ECR_URI }}
 
       - name: Build, tag, and push backend image
         run: |
           docker build -t tasktracker-backend ./backend
-          docker tag tasktracker-backend:latest ec2-54-175-198-233.compute-1.amazonaws.com/tasktracker-backend:${{ github.ref_name }}
-          docker push ec2-54-175-198-233.compute-1.amazonaws.com/tasktracker-backend:${{ github.ref_name }}
+          docker tag tasktracker-backend:latest ${{ env.ECR_URI }}/tasktracker-backend:${{ github.ref_name }}
+          docker push ${{ env.ECR_URI }}/tasktracker-backend:${{ github.ref_name }}
 
       - name: Build, tag, and push frontend image
         run: |
           docker build -t tasktracker-frontend ./frontend
-          docker tag tasktracker-frontend:latest ec2-54-175-198-233.compute-1.amazonaws.com/tasktracker-frontend:${{ github.ref_name }}
-          docker push ec2-54-175-198-233.compute-1.amazonaws.com/tasktracker-frontend:${{ github.ref_name }}
+          docker tag tasktracker-frontend:latest ${{ env.ECR_URI }}/tasktracker-frontend:${{ github.ref_name }}
+          docker push ${{ env.ECR_URI }}/tasktracker-frontend:${{ github.ref_name }}
 
       - name: Deploy to EC2
         env:
