@@ -110,7 +110,7 @@ jobs:
           ssh-keyscan -H "ec2-54-175-198-233.compute-1.amazonaws.com" >> ~/.ssh/known_hosts
       - name: Upload deployment files to Production
         run: |
-          scp -r -i ~/.ssh/id_rsa frontend backend ${{ secrets.EC2_USER_PROD }}@${{ secrets.EC2_HOST_PROD }}:/home/${{ secrets.EC2_USER_PROD }}/
+          scp -r -i ~/.ssh/id_rsa frontend ${{ secrets.EC2_USER_PROD }}@${{ secrets.EC2_HOST_PROD }}:/home/${{ secrets.EC2_USER_PROD }}/
           ssh -i ~/.ssh/id_rsa ${{ secrets.EC2_USER_PROD }}@${{ secrets.EC2_HOST_PROD }} "chmod +x /home/${{ secrets.EC2_USER_PROD }}/deploy.sh"
           scp -i ~/.ssh/id_rsa ./docker-compose.prod.yml ./deploy.sh $TARGET_USER@$TARGET_HOST:/home/$TARGET_USER/
 
