@@ -55,40 +55,54 @@ jobs:
         env:
           AWS_REGION: ${{ secrets.AWS_REGION }}
           ECR_URI: ${{ env.ECR_URI }}
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+          EC2_USER: ${{ secrets.EC2_USER }}
+
         run: |
-          set -env
+          set -e
 
-          # 1. Write SSH key from GitHub secret (must be exactly your PEM content)
-          mkdir -p ~/.ssh
-          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
-          chmod 600 ~/.ssh/id_rsa   
+            # 1. Write SSH key from GitHub secret (must be exactly your PEM content)
+            mkdir -p ~/.ssh
+            echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+            chmod 600 ~/.ssh/id_rsa
+            # Ensure the SSH key is added to the SSH agent
+            eval "$(ssh-agent -s)"
+            ssh-add ~/.ssh/id_rsa
+            # Ensure the SSH config file exists
+            touch ~/.ssh/config
+            # Add the following lines to the SSH config file
+            echo "Host *" >> ~/.ssh/config
+            echo "    StrictHostKeyChecking no" >> ~/.ssh/config
+            echo "    UserKnownHostsFile=/dev/null" >> ~/.ssh/config
+            echo "    IdentityFile ~/.ssh/id_rsa" >> ~/.ssh/config
+            # Set permissions for the SSH config file
+            chmod 600 ~/.ssh/config
+     
 
-          # 2. Add your EC2 host to known_hosts to avoid prompts
-          ssh-keyscan -H "${{ secrets.EC2_HOST }}" >> ~/.ssh/known_hosts
+            # 2. Add your EC2 host to known_hosts to avoid prompts
+            ssh-keyscan -H "${{ secrets.EC2_HOST }}" >> ~/.ssh/known_hosts
 
-          # 3. SSH in and run your ECR + Docker commands
-          ssh -v -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no \
-            ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << 'EOF'
-          aws ecr get-login-password --region $AWS_REGION \
-            | docker login --username AWS --password-stdin $ECR_URI
-              docker-compose.prod.yml deploy.sh \
-              $EC2_USER@$EC2_HOST:/home/ubuntu/
+            # 3. SSH into your EC2 instance and run the deployment script
+            ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << 'EOF'
+            set -e
 
+            export ECR_URI=${ECR_URI}
+            export AWS_REGION=${AWS_REGION}
 
-              docker pull $ECR_URI/tasktracker-frontend:main
-              docker pull $ECR_URI/tasktracker-backend:main
+            # Login to ECR (in case the EC2 session needs it)
+            aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $ECR_URI
 
+            # Optional: Clean up unused Docker resources
+             docker system prune -af
 
-              ./deploy.sh
-              docker-compose down
-              docker-compose up -d
-              EOF
+            # Pull latest images
+            docker pull $ECR_URI/tasktracker-frontend:main
+            docker pull $ECR_URI/tasktracker-backend:main
 
+            # Deploy
+            docker-compose -f docker-compose.prod.yml down
+            docker-compose -f docker-compose.prod.yml up -d
 
-            
-
-
-          
-          
-
-        
+            # Show running containers for verification
+            docker ps
+            EOF
