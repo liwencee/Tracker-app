@@ -2,3 +2,6 @@ FROM nginx:alpine
 COPY . /usr/share/nginx/html
 EXPOSE 80
 CMD ["nginx", "-g", "daemon off;"]
+# This Dockerfile is for building a simple Nginx server to serve static files.
+# It copies the current directory contents into the Nginx default directory and exposes port 80.
+# The CMD command runs Nginx in the foreground.    

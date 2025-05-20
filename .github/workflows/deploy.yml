@@ -65,19 +65,7 @@ jobs:
             mkdir -p ~/.ssh
             echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
             chmod 600 ~/.ssh/id_rsa
-            # Ensure the SSH key is added to the SSH agent
-            eval "$(ssh-agent -s)"
-            ssh-add ~/.ssh/id_rsa
-            # Ensure the SSH config file exists
-            touch ~/.ssh/config
-            # Add the following lines to the SSH config file
-            echo "Host *" >> ~/.ssh/config
-            echo "    StrictHostKeyChecking no" >> ~/.ssh/config
-            echo "    UserKnownHostsFile=/dev/null" >> ~/.ssh/config
-            echo "    IdentityFile ~/.ssh/id_rsa" >> ~/.ssh/config
-            # Set permissions for the SSH config file
-            chmod 600 ~/.ssh/config
-     
+            
 
             # 2. Add your EC2 host to known_hosts to avoid prompts
             ssh-keyscan -H "${{ secrets.EC2_HOST }}" >> ~/.ssh/known_hosts
