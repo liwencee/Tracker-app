@@ -61,7 +61,7 @@ jobs:
           ECR_URI:       ${{ env.ECR_URI }}
           IMAGE_TAG:     ${{ env.IMAGE_TAG }}
         run: |
-          set -e
+          set -env
 
           # 1. Install SSH key
           mkdir -p ~/.ssh
