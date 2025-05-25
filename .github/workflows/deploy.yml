@@ -70,6 +70,8 @@ jobs:
           IMAGE_TAG: ${{ env.IMAGE_TAG }}
         run: |
           set -e
+
+          # 1. Install SSH key
           mkdir -p ~/.ssh
           echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
