@@ -1,0 +1,16 @@
+{
+  "name": "tracker-app",
+  "version": "1.0.0",
+  "description": "This project sets up a fully containerized **Task Tracker Application** with CI/CD, deployed on AWS using **ECS Fargate**, **Application Load Balancer (ALB)**, and **SSL**. The infrastructure is provisioned via **Terraform**, and the application is built and deployed via **GitHub Actions**.",
+  "main": "vite.config.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "express": "^5.1.0",
+    "react": "^19.1.0"
+  }
+}
