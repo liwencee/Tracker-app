@@ -14,8 +14,6 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       environment: ${{ steps.set-env.outputs.environment }}
-      ecr_uri: ${{ steps.set-ecr.outputs.ecr_uri }}
-      image_tag: ${{ steps.set-ecr.outputs.image_tag }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
@@ -37,13 +35,19 @@ jobs:
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Set up ECR
-        id: set-ecr
+        id: set_ecr
         run: |
           ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
           ECR_URI="$ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com"
           IMAGE_TAG="${GITHUB_REF##*/}-$(date +%s)"
-          echo "ecr_uri=$ECR_URI" >> $GITHUB_OUTPUT
-          echo "image_tag=$IMAGE_TAG" >> $GITHUB_OUTPUT
+          echo "ECR_URI=$ECR_URI" >> $GITHUB_ENV
+          echo "IMAGE_TAG=$IMAGE_TAG" >> $GITHUB_ENV
+          echo "::set-output name=ecr_uri::$ECR_URI"
+          echo "::set-output name=image_tag::$IMAGE_TAG"
+        # Set outputs for use in deploy job
+        outputs:
+          ecr_uri: ${{ steps.set_ecr.outputs.ecr_uri }}
+          image_tag: ${{ steps.set_ecr.outputs.image_tag }}
 
       - name: Login to ECR
         run: |
@@ -65,38 +69,38 @@ jobs:
     needs: build-push
     env:
       ENVIRONMENT: ${{ needs.build-push.outputs.environment }}
+      ECR_URI: ${{ needs.build-push.outputs.ecr_uri }}
+      IMAGE_TAG: ${{ needs.build-push.outputs.image_tag }}
+      AWS_REGION: ${{ env.AWS_REGION }}
     steps:
       - name: Deploy to EC2 via SSH
         env:
           SSH_USER: ${{ secrets[format('{0}_SSH_USER', env.ENVIRONMENT)] }}
           SSH_HOST: ${{ secrets[format('{0}_SSH_HOST', env.ENVIRONMENT)] }}
           SSH_KEY: ${{ secrets[format('{0}_SSH_KEY', env.ENVIRONMENT)] }}
+          ECR_URI: ${{ env.ECR_URI }}
+          IMAGE_TAG: ${{ env.IMAGE_TAG }}
           AWS_REGION: ${{ env.AWS_REGION }}
-          ECR_URI: ${{ needs.build-push.outputs.ecr_uri }}
-          IMAGE_TAG: ${{ needs.build-push.outputs.image_tag }}
         shell: bash
         run: |
-          set -ex
+          set -e
 
-          # Configure SSH
           mkdir -p ~/.ssh
-          chmod 700 ~/.ssh
-          printf "%s" "$SSH_KEY" | base64 -d -w0 > ~/.ssh/id_rsa
+          chmod 700 ~/.ssh  # Set directory permissions
+          # If your SSH_KEY secret is base64-encoded, keep base64 -d. If not, remove it.
+          printf "%s" "$SSH_KEY" | base64 -d > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
           ssh-keyscan -H "$SSH_HOST" >> ~/.ssh/known_hosts
 
-          # Execute remote commands with TTY
-          ssh -tt -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa "$SSH_USER@$SSH_HOST" <<EOF
-            set -ex
-            # Install AWS CLI if missing
+          # SSH into EC2 and deploy
+          ssh -v -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa "$SSH_USER@$SSH_HOST" <<EOF
+            set -e
+            # Install AWS CLI if not present
             if ! command -v aws &> /dev/null; then
-              sudo apt-get update -qq && sudo apt-get install -y awscli
+              sudo apt-get update
+              sudo apt-get install -y awscli
             fi
-            
-            # Login to ECR
             aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $ECR_URI
-            
-            # Update containers
             docker-compose -f docker-compose.$ENVIRONMENT.yml pull
             docker-compose -f docker-compose.$ENVIRONMENT.yml up -d
             docker system prune -af
