@@ -31,39 +31,9 @@ jobs:
           set -e
           ssh -o StrictHostKeyChecking=no -i ec2_key.pem ubuntu@$EC2_IP << 'EOF'
             set -e
-            echo "[+] Installing AWS CLI if needed..."
-            if ! command -v aws &> /dev/null; then
-              sudo apt update && sudo apt install -y awscli
-            fi
-
-            echo "[+] Configuring AWS credentials..."
-            mkdir -p ~/.aws
-            cat <<EOT > ~/.aws/credentials
-[default]
-aws_access_key_id=${AWS_ACCESS_KEY_ID}
-aws_secret_access_key=${AWS_SECRET_ACCESS_KEY}
-region=us-east-1
-EOT
-
-            echo "[+] Deploying Backend..."
-            cd /home/ubuntu/$ENV_FOLDER/backend
-            git pull origin $ENV_FOLDER || git pull origin main || git pull origin staging
-            docker-compose down
-            docker-compose up -d --build
-
-            echo "[+] Deploying Frontend..."
-            cd /home/ubuntu/$ENV_FOLDER/frontend
-            git pull origin $ENV_FOLDER || git pull origin main || git pull origin staging
-            docker-compose down
-            docker-compose up -d --build
-
-            echo "[✔] Deployment complete for $ENV_FOLDER."
+            aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $ECR_URI
+            docker-compose -f docker-compose.$ENVIRONMENT.yml pull
+            docker-compose -f docker-compose.$ENVIRONMENT.yml up -d
+            docker system prune -af
+            docker ps
           EOF
-
-      - name: Notify Deployment Success
-        if: success()
-        run: echo "✅ Deployment to ${{ env.ENV_FOLDER }} succeeded!"
-
-      - name: Notify Deployment Failure
-        if: failure()
-        run: echo "❌ Deployment to ${{ env.ENV_FOLDER }} failed!"
