@@ -4,7 +4,7 @@ on:
   push:
     branches:
       - main
-      - staging  # Add staging branch trigger
+      - staging  # Add staging branc trigger
 
 jobs:
   build-push:
