@@ -67,7 +67,7 @@ jobs:
           chmod 600 ~/.ssh/id_rsa
           ssh-keyscan -H $SSH_HOST >> ~/.ssh/known_hosts
 
-          ssh -i ~/.ssh/id_rsa $SSH_USER@$SSH_HOST <<EOF
+          ssh -vvv-i ~/.ssh/id_rsa $SSH_USER@$SSH_HOST <<EOF
           set -e
           aws ecr get-login-password --region ${{ secrets.AWS_REGION }} | docker login --username AWS --password-stdin $ECR_URI
           export IMAGE_TAG=${{ env.IMAGE_TAG }}
