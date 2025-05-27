@@ -4,13 +4,14 @@ on:
   push:
     branches:
       - main
+      - staging  # Add staging branch trigger
 
 jobs:
-  deploy:
+  build-push:
     runs-on: ubuntu-latest
-
     env:
       AWS_REGION: ${{ secrets.AWS_REGION }}
+      ENVIRONMENT: ${{ github.ref_name == 'main' && 'prod' || 'staging' }}  # Dynamic environment
 
     steps:
       - name: Checkout code
@@ -19,54 +20,58 @@ jobs:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v2
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY }}
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_REGION }}
 
-      - name: Get AWS Account ID and set ECR URI
+      - name: Set up ECR
         run: |
           ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
-          echo "ECR_URI=${ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com" >> $GITHUB_ENV
-          echo "IMAGE_TAG=${GITHUB_REF##*/}" >> $GITHUB_ENV
+          ECR_URI="$ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com"
+          IMAGE_TAG="${GITHUB_REF##*/}-$(date +%s)"  # Unique tag with timestamp
+          echo "ECR_URI=$ECR_URI" >> $GITHUB_ENV
+          echo "IMAGE_TAG=$IMAGE_TAG" >> $GITHUB_ENV
 
       - name: Login to ECR
         run: |
           aws ecr get-login-password --region $AWS_REGION | \
-            docker login --username AWS --password-stdin $ECR_URI
+          docker login --username AWS --password-stdin $ECR_URI
 
-      - name: Build, tag, and push backend
+      - name: Build and push backend
         run: |
-          docker build -t tasktracker-backend ./backend
-          docker tag tasktracker-backend:latest $ECR_URI/tasktracker-backend:$IMAGE_TAG
+          docker build -t $ECR_URI/tasktracker-backend:$IMAGE_TAG ./backend
           docker push $ECR_URI/tasktracker-backend:$IMAGE_TAG
 
-      - name: Build, tag, and push frontend
+      - name: Build and push frontend
         run: |
-          docker build -t tasktracker-frontend ./frontend
-          docker tag tasktracker-frontend:latest $ECR_URI/tasktracker-frontend:$IMAGE_TAG
+          docker build -t $ECR_URI/tasktracker-frontend:$IMAGE_TAG ./frontend
           docker push $ECR_URI/tasktracker-frontend:$IMAGE_TAG
 
-      - name: Deploy to EC2 via SSH
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build-push
+    env:
+      ENVIRONMENT: ${{ needs.build-push.outputs.environment }}
+    strategy:
+      matrix:
+        target: [prod, staging]  # Deploy to both environments
+    steps:
+      - name: Deploy to ${{ matrix.target }}
+        env:
+          SSH_USER: ${{ secrets[format('{0}_SSH_USER', matrix.target)] }}
+          SSH_HOST: ${{ secrets[format('{0}_SSH_HOST', matrix.target)] }}
+          SSH_KEY: ${{ secrets[format('{0}_SSH_KEY', matrix.target)] }}
         run: |
           mkdir -p ~/.ssh
-          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          echo "$SSH_KEY" | base64 -d > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
-          ssh-keyscan -H "${{ secrets.EC2_HOST }}" >> ~/.ssh/known_hosts
+          ssh-keyscan -H $SSH_HOST >> ~/.ssh/known_hosts
 
-          ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << EOF
-            set -e
-
-            export ECR_URI=${ECR_URI}
-            export AWS_REGION=${AWS_REGION}
-            export IMAGE_TAG=${IMAGE_TAG}
-
-            aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $ECR_URI
-
-            docker pull $ECR_URI/tasktracker-backend:$IMAGE_TAG
-            docker pull $ECR_URI/tasktracker-frontend:$IMAGE_TAG
-
-            docker-compose -f docker-compose.prod.yml down
-            docker-compose -f docker-compose.prod.yml up -d
-
-            docker ps
+          ssh -i ~/.ssh/id_rsa $SSH_USER@$SSH_HOST <<EOF
+          set -e
+          aws ecr get-login-password --region ${{ secrets.AWS_REGION }} | docker login --username AWS --password-stdin $ECR_URI
+          export IMAGE_TAG=${{ env.IMAGE_TAG }}
+          docker-compose -f docker-compose.${{ matrix.target }}.yml pull
+          docker-compose -f docker-compose.${{ matrix.target }}.yml up -d
+          docker system prune -af
           EOF
