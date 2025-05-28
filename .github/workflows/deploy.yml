@@ -83,7 +83,8 @@ jobs:
           ssh-keyscan -H "$SSH_HOST" >> ~/.ssh/known_hosts
 
           # Execute remote commands with TTY
-          ssh -tt -o StrictHostKeyChecking=no -i /home/runner/.ssh/id_rsa ubuntu@$EC2_IP << 'EOF'
+          ssh -tt -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa ubuntu@${{ secrets.EC2_PUBLIC_IP }}
+                      << 'EOF'
             set -ex
             # Install AWS CLI via curl if not present
           if ! command -v aws &> /dev/null; then
