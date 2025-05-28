@@ -86,18 +86,18 @@ jobs:
           ssh -tt -o StrictHostKeyChecking=no -i /home/runner/.ssh/id_rsa ubuntu@$EC2_IP << 'EOF'
             set -ex
             # Install AWS CLI via curl if not present
-            if ! command -v aws &> /dev/null; then
-              sudo apt-get update -qq && sudo apt-get install -y curl unzip
-              curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
-              unzip awscliv2.zip
-              sudo ./aws/install
-            fi
+          if ! command -v aws &> /dev/null; then
+            sudo apt-get update -qq && sudo apt-get install -y curl unzip
+            curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+            unzip awscliv2.zip
+            sudo ./aws/install
+          fi
 
-            # Login to ECR and deploy
-            aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin <your-account-id>.dkr.ecr.us-east-1.amazonaws.com
+          # Login to ECR and deploy
+          aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin <your-account-id>.dkr.ecr.us-east-1.amazonaws.com
 
-            docker-compose -f docker-compose.prod.yml pull
-            docker-compose -f docker-compose.prod.yml up -d
-            docker system prune -af
-            docker ps
+          docker-compose -f docker-compose.prod.yml pull
+          docker-compose -f docker-compose.prod.yml up -d
+          docker system prune -af
+          docker ps
           EOF
