@@ -83,19 +83,21 @@ jobs:
           ssh-keyscan -H "$SSH_HOST" >> ~/.ssh/known_hosts
 
           # Execute remote commands with TTY
-          ssh -tt -o StrictHostKeyChecking=no -i ~/.ssh/id_rsa "$SSH_USER@$SSH_HOST" <<EOF
+          ssh -tt -o StrictHostKeyChecking=no -i /home/runner/.ssh/id_rsa ubuntu@$EC2_IP << 'EOF'
             set -ex
-            # Install AWS CLI if missing
+            # Install AWS CLI via curl if not present
             if ! command -v aws &> /dev/null; then
-              sudo apt-get update -qq && sudo apt-get install -y awscli
+              sudo apt-get update -qq && sudo apt-get install -y curl unzip
+              curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+              unzip awscliv2.zip
+              sudo ./aws/install
             fi
-            
-            # Login to ECR
-            aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $ECR_URI
-            
-            # Update containers
-            docker-compose -f docker-compose.$ENVIRONMENT.yml pull
-            docker-compose -f docker-compose.$ENVIRONMENT.yml up -d
+
+            # Login to ECR and deploy
+            aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin <your-account-id>.dkr.ecr.us-east-1.amazonaws.com
+
+            docker-compose -f docker-compose.prod.yml pull
+            docker-compose -f docker-compose.prod.yml up -d
             docker system prune -af
             docker ps
           EOF
