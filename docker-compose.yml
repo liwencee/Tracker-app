@@ -1,20 +1,12 @@
 version: '3.8'
-
 services:
-  backend:
-    build:
-      context: ./backend
-    container_name: tasktracker-backend
-    ports:
-      - "5000:5000"  # Update this if your backend runs on a different port
-    volumes:
-      - ./backend:/app
-    environment:
-      - PYTHONUNBUFFERED=1
-
   frontend:
-    build:
-      context: ./frontend
-    container_name: tasktracker-frontend
+    build: ./frontend
     ports:
-      - "80:80"  # Accessible via EC2 public IP on port 80
+      - "80:3000"
+  backend:
+    build: ./backend
+    ports:
+      - "5000:5000"
+    environment:
+      - NODE_ENV=production
